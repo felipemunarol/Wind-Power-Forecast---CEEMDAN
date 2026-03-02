@@ -16,16 +16,23 @@ De forma a poder aumentar a acurácia do modelo de previsão em uma série tempo
 
 ## Estrutura do Projeto
 
-├── CEEMDAN-EWT-LSTM/        # Main modeling architecture
-├── dataset/                 # Wind power dataset
+```text
+Wind-Power-Forecast---CEEMDAN/
+│
+├── CEEMDAN-EWT-LSTM/        # Hybrid decomposition + LSTM models
+├── dataset/                 # Input time-series data
+│
+├── experiments_france.ipynb # Main experimental notebook
+├── experiments_france_1_1.py# Script version of experiments
+│
 ├── VMD.py                   # Variational Mode Decomposition
-├── hilbert.py               # Hilbert transform utilities
-├── myfunctions_france_felipe.py
-├── experiments_france.ipynb
-├── experiments_france_1_1.py
+├── hilbert.py               # Hilbert transform functions
+├── myfunctions_france_felipe.py # Auxiliary utilities
+│
 ├── requirements.txt
 ├── Dockerfile
 └── README.md
+```
 
 ## Instalação
 
