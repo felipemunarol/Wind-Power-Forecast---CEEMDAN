@@ -38,19 +38,24 @@ Wind-Power-Forecast---CEEMDAN/
 
 Clone o repositório:
 
+```bash
 $ git clone https://github.com/felipemunarol/Wind-Power-Forecast---CEEMDAN.git
 $ cd Wind-Power-Forecast---CEEMDAN
+```
 
 ## Docker
 
 Build:
 
+```bash
 $ DOCKER_BUILDKIT=1 docker build --output type=local,dest=./build .
+```
 
 Run:
 
+```bash
 $ docker run --rm solid2
-
+```
 
 ## References
 
