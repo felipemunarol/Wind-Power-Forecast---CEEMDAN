@@ -57,6 +57,8 @@ Run:
 $ docker run --rm solid2
 ```
 
+No comando run já é executado o script principal.
+
 ## References
 
 [1]  Karijadi, Irene & Chou, Shuo-Yan & Dewabharata, Anindhita, 2023. "Wind power forecasting based on hybrid CEEMDAN-EWT deep learning method," Renewable Energy, Elsevier, vol. 218(C).
