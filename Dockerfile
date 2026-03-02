@@ -1,6 +1,6 @@
 # Commands: 
 #   - build: DOCKER_BUILDKIT=1 docker build --output type=local,dest=./build .
-#   - run: docker run solid2 python '1.1 Experiments for France Dataset Felipe.py'
+#   - docker run --rm solid2
 
 FROM python:3.7.16-slim-bullseye
 
@@ -33,5 +33,7 @@ RUN pip install -r requirements.txt
 # Código do projeto
 COPY . .
 
+# Comando
 # Comando padrão
-# CMD ["python"]
+# CMD ["python3"]
+CMD ["python3", "experiments_france_1_1.py"]
