@@ -2735,9 +2735,6 @@ def proposed_method_with_patchtransformer_tf(new_data,i,look_back,data_partition
 
         import os 
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-        from tensorflow.keras.models import Sequential
-        from tensorflow.keras.layers import Dense, Dropout, Activation
-        from tensorflow.keras.layers import LSTM
 
         import torch
         import torch.nn as nn
@@ -2779,12 +2776,15 @@ def proposed_method_with_patchtransformer_tf(new_data,i,look_back,data_partition
                         num_layers=1, pred_len=1, dropout=0.1):
                 super().__init__()
                 self.embedding = PatchEmbedding(input_dim, patch_len, embed_dim)
+                # Positional Encoding
                 self.pos_encoder = PositionalEncoding(embed_dim)
+                # Transformer Encoder 
                 encoder_layer = nn.TransformerEncoderLayer(
                     d_model=embed_dim, nhead=num_heads,
                     dropout=dropout, batch_first=True
                 )
                 self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+                # Head
                 self.head = nn.Linear(embed_dim, pred_len)
 
             def forward(self, x):
