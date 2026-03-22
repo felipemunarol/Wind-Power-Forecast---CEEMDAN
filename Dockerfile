@@ -1,6 +1,6 @@
 # Commands: 
-#   - build: DOCKER_BUILDKIT=1 docker build --output type=local,dest=./build .
-#   - docker run --rm solid2
+#   - docker build -t ceemdan-model:v1 .
+#   - docker run -it -v ${PWD}:/app wind-model
 
 FROM python:3.7.16-slim-bullseye
 

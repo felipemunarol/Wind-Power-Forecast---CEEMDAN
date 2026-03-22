@@ -33,7 +33,7 @@ data_partition=0.8
 # %%
 from myfunctions_france_felipe import \
     svr_model,ann_model,rf_model,lstm_model,emd_lstm,eemd_lstm, \
-    ceemdan_lstm,proposed_method, proposed_method_stable_layer, proposed_method_dropout_layer, proposed_method_stable_and_dropout_layer, \
+    ceemdan_lstm,proposed_method, method_proposed_hilbert_transform, proposed_method_stable_layer, proposed_method_dropout_layer, proposed_method_stable_and_dropout_layer, \
     proposed_method_with_bilstm, proposed_method_with_gru, proposed_method_with_bigru, proposed_method_with_transformer_keras, \
     proposed_method_with_patchtransformer_tf, proposed_method_with_kan, proposed_method_with_deeponet, \
     proposed_method_with_lstm_deeponet
@@ -67,8 +67,12 @@ svr_model(new_data,i,look_back,data_partition,cap)
 # ceemdan_lstm(new_data,i,look_back,data_partition,cap)
 
 # # %%
-# print('proposed_method')
-# proposed_method(new_data,i,look_back,data_partition,cap)
+print('proposed_method')
+proposed_method(new_data,i,look_back,data_partition,cap)
+
+# # %%
+print('proposed_method using hilbert transform')
+method_proposed_hilbert_transform(new_data,i,look_back,data_partition,cap)
 
 # # %%
 # print('proposed_method_stable_layer')
@@ -79,8 +83,8 @@ svr_model(new_data,i,look_back,data_partition,cap)
 # proposed_method_dropout_layer(new_data,i,look_back,data_partition,cap)
 
 # %%
-print('proposed_method_stable_and_dropout_layer')
-proposed_method_stable_and_dropout_layer(new_data,i,look_back,data_partition,cap)
+# print('proposed_method_stable_and_dropout_layer')
+# proposed_method_stable_and_dropout_layer(new_data,i,look_back,data_partition,cap)
 
 # %%
 # print('proposed_method_with_bilstm')

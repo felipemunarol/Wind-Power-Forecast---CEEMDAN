@@ -15,6 +15,7 @@ from tensorflow.keras.layers import LSTM
 from sklearn import metrics
 import numpy
 import pandas as pd
+import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
@@ -125,6 +126,13 @@ def svr_model(new_data,i,look_back,data_partition,cap):
     print('MAPE',mape)
     print('RMSE',rmse)
     print('MAE',mae)
+
+    # Save the real and predict values
+    np.savetxt('y_test.txt', y_test.values.flatten(), fmt='%.6f')
+    np.savetxt('y_pred_svr_model.txt', y_pred_test1_svr.values.flatten(), fmt='%.6f')
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+    np.savetxt('dates.txt', dates.astype(str), fmt='%s')
 
 
 # In[21]:
@@ -1112,6 +1120,197 @@ def proposed_method(new_data,i,look_back,data_partition,cap):
     print('MAPE',mape)
     print('RMSE',rmse)
     print('MAE',mae)
+
+    # Save the real and predict values
+    np.savetxt('y_test.txt', y_test.values.flatten(), fmt='%.6f')
+    np.savetxt('y_pred_method_proposed.txt', a.values.flatten(), fmt='%.6f')
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+    np.savetxt('dates.txt', dates.astype(str), fmt='%s')
+
+
+# Proposed Method Hybrid CEEMDAN (without EWT) with Hilbert transform. This is a variation
+# of the Hilbert-Huang Transformer (HHT)
+
+def method_proposed_hilbert_transform(new_data, i, look_back, data_partition, cap):
+
+    import numpy as np
+    import pandas as pd
+    from math import sqrt
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.metrics import mean_squared_error
+    from sklearn import metrics
+    from scipy.signal import hilbert
+    from PyEMD import CEEMDAN
+    import tensorflow as tf
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense, LSTM
+
+    # =========================
+    # 1. Data preparation
+    # =========================
+    x = i
+    data1 = new_data.loc[new_data['Month'].isin(x)]
+    data1 = data1.reset_index(drop=True)
+    data1 = data1.dropna()
+
+    datas = data1['P_avg']
+    dfs = datas
+    s = dfs.values
+
+    # =========================
+    # 2. CEEMDAN decomposition
+    # =========================
+    ceemdan = CEEMDAN(epsilon=0.05)
+    ceemdan.noise_seed(12345)
+
+    IMFs = ceemdan(s)
+    ceemdan_df = pd.DataFrame(IMFs).T  # shape (N, num_imfs)
+
+    # =========================
+    # 3. Hilbert Transform
+    # =========================
+    imfs_array = ceemdan_df.values
+
+    analytic = hilbert(imfs_array, axis=0)
+    amplitude = np.abs(analytic)
+    phase = np.unwrap(np.angle(analytic), axis=0)
+
+    inst_freq = (1 / (2 * np.pi)) * np.diff(phase, axis=0)
+    inst_freq = np.vstack([inst_freq, np.zeros((1, inst_freq.shape[1]))])
+
+    # 👉 versão estável (recomendada)
+    features = np.concatenate([imfs_array, amplitude], axis=1)
+
+    # (opcional - mais avançado)
+    # features = np.concatenate([imfs_array, amplitude, inst_freq], axis=1)
+
+    new_features = pd.DataFrame(features)
+
+    # =========================
+    # 4. LSTM modeling per feature
+    # =========================
+    pred_test = []
+    test_ori = []
+    pred_train = []
+    train_ori = []
+
+    epoch = 100
+    batch_size = 64
+
+    for col in new_features:
+
+        datasetss2 = pd.DataFrame(new_features[col])
+        datasets = datasetss2.values
+
+        train_size = int(len(datasets) * data_partition)
+        train, test = datasets[0:train_size], datasets[train_size:]
+
+        trainX, trainY = create_dataset(train, look_back)
+        testX, testY = create_dataset(test, look_back)
+
+        trainY = np.array(trainY).reshape(-1, 1)
+        testY  = np.array(testY).reshape(-1, 1)
+
+        sc_X = StandardScaler()
+        sc_y = StandardScaler()
+
+        X = sc_X.fit_transform(trainX)
+        y = sc_y.fit_transform(trainY)
+
+        X1 = sc_X.fit_transform(testX)
+        y1 = sc_y.fit_transform(testY)
+
+        y = y.ravel()
+        y1 = y1.ravel()
+
+        # reshape for LSTM
+        trainX = np.reshape(X, (X.shape[0], X.shape[1], 1))
+        testX = np.reshape(X1, (X1.shape[0], X1.shape[1], 1))
+
+        # reproducibility
+        np.random.seed(1234)
+        tf.random.set_seed(1234)
+
+        # model
+        model = Sequential()
+        model.add(LSTM(units=128, input_shape=(trainX.shape[1], trainX.shape[2])))
+        model.add(Dense(1))
+
+        optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+        model.compile(loss='mse', optimizer=optimizer)
+
+        model.fit(trainX, y, epochs=epoch, batch_size=batch_size, verbose=0)
+
+        # predictions
+        y_pred_train = model.predict(trainX)
+        y_pred_test = model.predict(testX)
+
+        y_pred_test = np.array(y_pred_test).ravel()
+        y_pred_train = np.array(y_pred_train).ravel()
+
+        y1 = pd.DataFrame(y1)
+        y = pd.DataFrame(y)
+
+        y_test = sc_y.inverse_transform(y1)
+        y_train = sc_y.inverse_transform(y)
+
+        y_pred_test1 = sc_y.inverse_transform(pd.DataFrame(y_pred_test))
+        y_pred_train1 = sc_y.inverse_transform(pd.DataFrame(y_pred_train))
+
+        pred_test.append(y_pred_test1)
+        test_ori.append(y_test)
+        pred_train.append(y_pred_train1)
+        train_ori.append(y_train)
+
+    # =========================
+    # 5. Reconstruction
+    # =========================
+    result_pred_test = pd.DataFrame.from_records(pred_test)
+    result_pred_train = pd.DataFrame.from_records(pred_train)
+
+    a = result_pred_test.sum(axis=0, skipna=True)
+    b = result_pred_train.sum(axis=0, skipna=True)
+
+    # =========================
+    # 6. Ground truth
+    # =========================
+    dataframe = pd.DataFrame(dfs)
+    dataset = dataframe.values
+
+    train_size = int(len(dataset) * data_partition)
+    train, test = dataset[0:train_size], dataset[train_size:]
+
+    trainX, trainY = create_dataset(train, look_back)
+    testX, testY = create_dataset(test, look_back)
+
+    sc_y = StandardScaler()
+
+    y_test = sc_y.fit_transform(testY)
+    y_test = sc_y.inverse_transform(y_test)
+
+    a = pd.DataFrame(a)
+    y_test = pd.DataFrame(y_test)
+
+    # =========================
+    # 7. Metrics
+    # =========================
+    mape = np.mean((np.abs(y_test - a)) / cap) * 100
+    rmse = sqrt(mean_squared_error(y_test, a))
+    mae = metrics.mean_absolute_error(y_test, a)
+
+    print('MAPE', mape)
+    print('RMSE', rmse)
+    print('MAE', mae)
+
+    # Save the real and predict values
+    np.savetxt('y_test.txt', y_test.values.flatten(), fmt='%.6f')
+    np.savetxt('y_pred_method_proposed_hilbert_transform.txt', a.values.flatten(), fmt='%.6f')
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+    np.savetxt('dates.txt', dates.astype(str), fmt='%s')
+
+    return a, y_test
 
 
 ##Proposed Method Hybrid CEEMDAN-EWT LSTM with Stable Layer
