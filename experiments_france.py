@@ -72,7 +72,7 @@ proposed_method(new_data,i,look_back,data_partition,cap)
 
 # # %%
 print('proposed_method using hilbert transform')
-method_proposed_hilbert_transform(new_data,i,look_back,data_partition,cap)
+# method_proposed_hilbert_transform(new_data,i,look_back,data_partition,cap)
 
 # # %%
 # print('proposed_method_stable_layer')
