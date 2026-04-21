@@ -1,39 +1,19 @@
 # Commands: 
 #   - docker build -t ceemdan-model:v1 .
-#   - docker run -it -v ${PWD}:/app wind-model
+#   - executa em cpu: docker run -it -v ${PWD}:/app ceemdan-model:v1
+#   - executa em gpu: docker run -it --gpus all -v ${PWD}:/app ceemdan-model:v1
 
-FROM python:3.7.16-slim-bullseye
+FROM tensorflow/tensorflow:2.15.0-gpu
 
-ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=1
-
-# Dependências de sistema
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    git \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copia requirements primeiro (cache eficiente)
 COPY requirements.txt .
 
-# Atualiza pip
-RUN pip install --upgrade pip
-
-# PyTorch CPU-only (COMANDO OFICIAL)
-RUN pip3 install torch torchvision \
-    --index-url https://download.pytorch.org/whl/cpu
-
-# Demais dependências Python
+# NÃO incluir tensorflow no requirements
 RUN pip install -r requirements.txt
 
-# Código do projeto
 COPY . .
 
-# Comando
-# Comando padrão
-# CMD ["python3"]
-CMD ["python3", "experiments_france_1_1.py"]
+CMD ["python3", "run_france.py"]

@@ -3,37 +3,38 @@
 
 # In[1]:
 
-
+import os
 from PyEMD import CEEMDAN
 import math
 import tensorflow as tf
 import numpy
+# Ajusta configurações do tensorflow
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["TF_DETERMINISTIC_OPS"] = "1"
+os.environ["PYTHONHASHSEED"] = "1234"
 from tensorflow import keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import LSTM
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import LSTM
+from keras import backend as K
 from sklearn import metrics
 import numpy
 import pandas as pd
 import numpy as np
-import tensorflow as tf
 import matplotlib.pyplot as plt
 
-from tensorflow import keras
-from tensorflow.keras import layers
 # import tensorflow_docs as tfdocs
 
-
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import LSTM
+BASE_DIR = os.getcwd()
 
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import mean_absolute_error
-
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn import metrics
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
+
 from math import sqrt
 
 #convert an array of values into a dataset matrix
@@ -45,102 +46,215 @@ def create_dataset(dataset, look_back=1):
         dataY.append(dataset[i + look_back, 0])
     return numpy.array(dataX), numpy.array(dataY)
 
+def run_pipeline(datasets, data1, look_back, model_func,
+                 use_cv=False, n_splits=3, data_partition=0.7, cap=None):
 
-# In[20]:
+    # =========================
+    # TREINO PADRÃO
+    # =========================
+    def run_model(train, test):
 
+        trainX, trainY = create_dataset(train, look_back)
+        testX, testY = create_dataset(test, look_back)
 
-##SVR
+        # manter exatamente como no código antigo
+        X_train = pd.DataFrame(trainX)
+        Y_train = pd.DataFrame(trainY)
+        X_test  = pd.DataFrame(testX)
+        Y_test  = pd.DataFrame(testY)
 
-def svr_model(new_data,i,look_back,data_partition,cap):
+        sc_X = StandardScaler()
+        sc_y = StandardScaler()
+
+        # igual ao antigo (fit_transform em ambos)
+        X  = sc_X.fit_transform(X_train)
+        X1 = sc_X.fit_transform(X_test)
+
+        y  = sc_y.fit_transform(Y_train).ravel()
+        y1 = sc_y.fit_transform(Y_test).ravel()
+
+        # modelo
+        y_pred_scaled = model_func(X, y, X1)
+
+        # inverter escala
+        y_pred = sc_y.inverse_transform(
+            np.asarray(y_pred_scaled).reshape(-1,1)
+        ).ravel()
+
+        y_test = sc_y.inverse_transform(
+            np.asarray(y1).reshape(-1,1)
+        ).ravel()
+
+        # métricas
+        mape = np.mean(np.abs(y_test - y_pred) / cap) * 100
+        rmse = np.sqrt(np.mean((y_test - y_pred) ** 2))
+        mae  = np.mean(np.abs(y_test - y_pred))
+
+        return mape, rmse, mae, y_test, y_pred
+
+    # =========================
+    # CROSS VALIDATION
+    # =========================
+    if use_cv:
+
+        tscv = TimeSeriesSplit(n_splits=n_splits)
+
+        y_test_all, y_pred_all, dates_all = [], [], []
+        mape_list, rmse_list, mae_list = [], [], []
+
+        for train_index, test_index in tscv.split(datasets):
+
+            train = datasets[train_index]
+            test = datasets[test_index]
+
+            mape, rmse, mae, y_test, y_pred = run_model(train, test)
+
+            mape_list.append(mape)
+            rmse_list.append(rmse)
+            mae_list.append(mae)
+
+            y_test_all.extend(np.asarray(y_test).ravel())
+            y_pred_all.extend(np.asarray(y_pred).ravel())
+
+            valid_idx = test_index + look_back
+            valid_idx = valid_idx[valid_idx < len(data1)]
+
+            dates_fold = data1['Month'].iloc[valid_idx]
+            dates_all.extend(np.asarray(dates_fold).astype(str))
+
+        print("MAPE", np.mean(mape_list))
+        print("RMSE", np.mean(rmse_list))
+        print("MAE", np.mean(mae_list))
+
+        return (
+            np.asarray(y_test_all),
+            np.asarray(y_pred_all),
+            np.asarray(dates_all)
+        )
+
+    # =========================
+    # HOLD OUT
+    # =========================
+    train_size = int(len(datasets) * data_partition)
+
+    train = datasets[:train_size]
+    test = datasets[train_size:]
+
+    mape, rmse, mae, y_test, y_pred = run_model(train, test)
+
+    print("MAPE", mape)
+    print("RMSE", rmse)
+    print("MAE", mae)
+
+    dates = data1['Month'].iloc[
+        train_size + look_back:
+        train_size + look_back + len(y_test)
+    ]
+
+    return (
+        np.asarray(y_test),
+        np.asarray(y_pred),
+        np.asarray(dates).astype(str)
+    )
+
+def svr_model(new_data, i, look_back, data_partition, cap,
+              use_cv=False, n_splits=3):
 
     import numpy as np
-    x=i
-    data1=new_data.loc[new_data['Month'].isin(x)]
-    data1=data1.reset_index(drop=True)
-    data1=data1.dropna()
-    datas=data1['P_avg']
-    datas_wind=pd.DataFrame(datas)
-    dfs=datas
-    s = dfs.values
-        
-    
-    datasetss2=pd.DataFrame(s)
-    datasets=datasetss2.values
-    
-    train_size = int(len(datasets) * data_partition)
-    test_size = len(datasets) - train_size
-    train, test = datasets[0:train_size], datasets[train_size:len(datasets)]
-
-    trainX, trainY = create_dataset(train, look_back)
-    testX, testY = create_dataset(test, look_back)
-    X_train=pd.DataFrame(trainX)
-    Y_train=pd.DataFrame(trainY)
-    X_test=pd.DataFrame(testX)
-    Y_test=pd.DataFrame(testY)
-    sc_X = StandardScaler()
-    sc_y = StandardScaler()
-
-    X= sc_X.fit_transform(X_train)
-    y= sc_y.fit_transform(Y_train)
-    X1= sc_X.fit_transform(X_test)
-    y1= sc_y.fit_transform(Y_test)
-    y=y.ravel()
-    y1=y1.ravel()  
-    import tensorflow as tf
-
-    numpy.random.seed(1234)
-    tf.random.set_seed(1234)
-    
-    
     from sklearn.svm import SVR
 
-    grid = SVR(kernel='rbf')
-    grid.fit(X,y)
-    y_pred_train_svr= grid.predict(X)
-    y_pred_test_svr= grid.predict(X1)
+    x = i
+    data1 = new_data.loc[new_data['Month'].isin(x)]
+    data1 = data1.reset_index(drop=True).dropna()
 
-    y_pred_train_svr=pd.DataFrame(y_pred_train_svr)
-    y_pred_test_svr=pd.DataFrame(y_pred_test_svr)
+    datasets = data1['P_avg'].values.reshape(-1, 1)
 
-    y1=pd.DataFrame(y1)
-    y=pd.DataFrame(y)
- 
-        
-    y_pred_test1_svr= sc_y.inverse_transform (y_pred_test_svr)
-    y_pred_train1_svr=sc_y.inverse_transform (y_pred_train_svr)
-   
-    y_test= sc_y.inverse_transform (y1)
-    y_train= sc_y.inverse_transform (y)
-     
-    y_pred_test1_svr=pd.DataFrame(y_pred_test1_svr)
-    y_pred_train1_svr=pd.DataFrame(y_pred_train1_svr)
-       
-    y_test= pd.DataFrame(y_test)
-  
-    #summarize the fit of the model
-    mape=numpy.mean((numpy.abs(y_test-y_pred_test1_svr))/cap)*100
-    rmse= sqrt(mean_squared_error(y_test,y_pred_test1_svr))
-    mae=metrics.mean_absolute_error(y_test,y_pred_test1_svr)
+    # =========================
+    # modelo plugável
+    # =========================
+    def model_func(X_train, y_train, X_test):
 
-    
-    print('MAPE',mape)
-    print('RMSE',rmse)
-    print('MAE',mae)
+        model = SVR(kernel='rbf')
+        model.fit(X_train, y_train)
 
-    # Save the real and predict values
-    np.savetxt('y_test.txt', y_test.values.flatten(), fmt='%.6f')
-    np.savetxt('y_pred_svr_model.txt', y_pred_test1_svr.values.flatten(), fmt='%.6f')
-    dates = data1['Month'].iloc[-len(y_test):]
-    dates = pd.to_datetime(dates)
-    np.savetxt('dates.txt', dates.astype(str), fmt='%s')
+        return model.predict(X_test)
+
+    y_test, y_pred, dates = run_pipeline(
+        datasets=datasets,
+        data1=data1,
+        look_back=look_back,
+        model_func=model_func,
+        use_cv=use_cv,
+        n_splits=n_splits,
+        data_partition=data_partition,
+        cap=cap
+    )
+
+    suffix = "_cv" if use_cv else ""
+
+    np.savetxt(f'y_test{suffix}.txt', y_test, fmt='%.6f')
+    np.savetxt(f'y_pred_svr_model{suffix}.txt', y_pred, fmt='%.6f')
+    np.savetxt(f'dates{suffix}.txt', dates, fmt='%s')
+
+    return y_test, y_pred, dates
+
+def ann_model(new_data, i, look_back, data_partition, cap,
+              use_cv=False, n_splits=3):
+
+    x = i
+    data1 = new_data.loc[new_data['Month'].isin(x)]
+    data1 = data1.reset_index(drop=True).dropna()
+
+    datasets = data1['P_avg'].values.reshape(-1,1)
+
+    # =========================
+    # modelo ANN plugável
+    # =========================
+    def model_func(X_train, y_train, X_test):
+
+        X_train = np.asarray(X_train)
+        X_test = np.asarray(X_test)
+
+        X_train = np.reshape(X_train, (X_train.shape[0], 1, X_train.shape[1]))
+        X_test  = np.reshape(X_test, (X_test.shape[0], 1, X_test.shape[1]))
+
+        model = Sequential()
+        model.add(Dense(128, input_shape=(X_train.shape[1], X_train.shape[2])))
+        model.add(Dense(1))
+
+        model.compile(loss='mse', optimizer='adam')
+
+        model.fit(X_train, y_train, verbose=0)
+
+        y_pred = model.predict(X_test, verbose=0)
+
+        return y_pred.ravel()
+
+    y_test, y_pred, dates = run_pipeline(
+        datasets=datasets,
+        data1=data1,
+        look_back=look_back,
+        model_func=model_func,
+        use_cv=use_cv,
+        n_splits=n_splits,
+        data_partition=data_partition,
+        cap=cap
+    )
+
+    suffix = "_cv" if use_cv else ""
+
+    np.savetxt(f'y_test{suffix}.txt', y_test, fmt='%.6f')
+    np.savetxt(f'y_pred_ann_model{suffix}.txt', y_pred, fmt='%.6f')
+    np.savetxt(f'dates{suffix}.txt', dates, fmt='%s')
+
+    return y_test, y_pred, dates
 
 
-# In[21]:
+def ann_model_old(new_data,i,look_back,data_partition,cap):
 
-
-##ANN
-
-def ann_model(new_data,i,look_back,data_partition,cap):
+    print(len(new_data))
+    print(new_data.head())
+    print(new_data.tail())
 
     x=i
     data1=new_data.loc[new_data['Month'].isin(x)]
@@ -191,9 +305,9 @@ def ann_model(new_data,i,look_back,data_partition,cap):
     
     import os 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import Dense, Dropout, Activation
-    from tensorflow.keras.layers import LSTM
+    from keras.models import Sequential
+    from keras.layers import Dense, Dropout, Activation
+    from keras.layers import LSTM
 
 
     neuron=128
@@ -227,10 +341,7 @@ def ann_model(new_data,i,look_back,data_partition,cap):
     print('MAE',mae)
 
 
-# In[22]:
-
-
-##RF 
+##RF
 def rf_model(new_data,i,look_back,data_partition,cap):
     
     x=i
@@ -1122,17 +1233,177 @@ def proposed_method(new_data,i,look_back,data_partition,cap):
     print('MAE',mae)
 
     # Save the real and predict values
-    np.savetxt('y_test.txt', y_test.values.flatten(), fmt='%.6f')
-    np.savetxt('y_pred_method_proposed.txt', a.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_proposed_method.txt'), a.values.flatten(), fmt='%.6f')
+
     dates = data1['Month'].iloc[-len(y_test):]
     dates = pd.to_datetime(dates)
-    np.savetxt('dates.txt', dates.astype(str), fmt='%s')
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
 
 
 # Proposed Method Hybrid CEEMDAN (without EWT) with Hilbert transform. This is a variation
 # of the Hilbert-Huang Transformer (HHT)
 
-def method_proposed_hilbert_transform(new_data, i, look_back, data_partition, cap):
+# def proposed_method_hilbert_transform(new_data, i, look_back, data_partition, cap):
+
+#     import numpy as np
+#     import pandas as pd
+#     from math import sqrt
+#     from sklearn.preprocessing import StandardScaler
+#     from sklearn.metrics import mean_squared_error
+#     from sklearn import metrics
+#     from scipy.signal import hilbert
+#     from PyEMD import CEEMDAN
+#     import tensorflow as tf
+#     from tensorflow.keras.models import Sequential
+#     from tensorflow.keras.layers import Dense, LSTM
+#     from tensorflow.keras import backend as K
+#     import gc
+#     import os
+
+#     # =========================
+#     # 1. Data preparation
+#     # =========================
+#     data1 = new_data.loc[new_data['Month'].isin(i)]
+#     data1 = data1.reset_index(drop=True).dropna()
+
+#     dfs = data1['P_avg']
+#     s = dfs.values
+
+#     # =========================
+#     # 2. CEEMDAN decomposition
+#     # =========================
+#     ceemdan = CEEMDAN(epsilon=0.05)
+#     ceemdan.noise_seed(12345)
+
+#     IMFs = ceemdan(s)
+#     ceemdan_df = pd.DataFrame(IMFs).T  # (N, num_imfs)
+
+#     # =========================
+#     # 3. Hilbert Transform
+#     # =========================
+#     imfs_array = ceemdan_df.values
+
+#     analytic = hilbert(imfs_array, axis=0)
+#     amplitude = np.abs(analytic)
+
+#     # features (estável)
+#     features = np.concatenate([imfs_array, amplitude], axis=1)
+#     new_features = pd.DataFrame(features)
+
+#     # =========================
+#     # 4. LSTM por feature
+#     # =========================
+#     pred_test = []
+
+#     epoch = 10
+#     batch_size = 64
+
+#     for col in new_features:
+
+#         # sempre 2D
+#         datasets = new_features[[col]].values
+
+#         train_size = int(len(datasets) * data_partition)
+#         train, test = datasets[:train_size], datasets[train_size:]
+
+#         trainX, trainY = create_dataset(train, look_back)
+#         testX, testY = create_dataset(test, look_back)
+
+#         # garantir formato correto
+#         trainY = np.array(trainY).reshape(-1, 1)
+#         testY  = np.array(testY).reshape(-1, 1)
+
+#         sc_X = StandardScaler()
+#         sc_y = StandardScaler()
+
+#         # FIT apenas no treino
+#         X_train = sc_X.fit_transform(trainX)
+#         y_train = sc_y.fit_transform(trainY)
+
+#         # TEST usa transform
+#         X_test = sc_X.transform(testX)
+#         y_test_scaled = sc_y.transform(testY)
+
+#         # reshape para LSTM
+#         trainX = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
+#         testX  = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+
+#         # reprodutibilidade
+#         np.random.seed(1234)
+#         tf.random.set_seed(1234)
+
+#         # modelo
+#         model = Sequential()
+#         model.add(LSTM(128, input_shape=(trainX.shape[1], 1)))
+#         model.add(Dense(1))
+
+#         model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.001))
+
+#         model.fit(trainX, y_train, epochs=epoch, batch_size=batch_size, verbose=0)
+
+#         # previsões
+#         y_pred_test = model.predict(testX)
+
+#         # voltar escala original
+#         y_pred_test = sc_y.inverse_transform(y_pred_test)
+
+#         pred_test.append(y_pred_test)
+
+#         K.clear_session()
+#         del model
+#         gc.collect()
+
+#     # =========================
+#     # 5. Reconstrução
+#     # =========================
+#     result_pred_test = pd.DataFrame.from_records(pred_test)
+#     a = result_pred_test.sum(axis=0, skipna=True)
+
+#     # =========================
+#     # 6. Ground truth
+#     # =========================
+#     dataset = dfs.values.reshape(-1, 1)
+
+#     train_size = int(len(dataset) * data_partition)
+#     train, test = dataset[:train_size], dataset[train_size:]
+
+#     _, testY = create_dataset(test, look_back)
+
+#     # corrigir shape
+#     testY = np.array(testY).reshape(-1, 1)
+
+#     y_test = pd.DataFrame(testY)
+#     a = pd.DataFrame(a)
+
+#     # =========================
+#     # 7. Métricas
+#     # =========================
+#     mape = np.mean(np.abs(y_test - a) / cap) * 100
+#     rmse = sqrt(mean_squared_error(y_test, a))
+#     mae = metrics.mean_absolute_error(y_test, a)
+
+#     print('MAPE', mape)
+#     print('RMSE', rmse)
+#     print('MAE', mae)
+
+#     # 8. Save the results
+#     np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'),
+#                 y_test.values.flatten(), fmt='%.6f')
+#     np.savetxt(os.path.join(BASE_DIR, 'y_pred_proposed_method_ht.txt'),
+#                 a.values.flatten(), fmt='%.6f')
+
+#     dates = data1['Month'].iloc[-len(y_test):]
+#     dates = pd.to_datetime(dates)
+
+#     np.savetxt(os.path.join(BASE_DIR, 'dates.txt'),
+#                 dates.astype(str), fmt='%s')
+
+
+#     return a, y_test
+
+def proposed_method_hilbert_transform(new_data, i, look_back, data_partition, cap):
 
     import numpy as np
     import pandas as pd
@@ -1145,172 +1416,140 @@ def method_proposed_hilbert_transform(new_data, i, look_back, data_partition, ca
     import tensorflow as tf
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Dense, LSTM
+    import os
 
     # =========================
-    # 1. Data preparation
+    # 1. Data
     # =========================
-    x = i
-    data1 = new_data.loc[new_data['Month'].isin(x)]
-    data1 = data1.reset_index(drop=True)
-    data1 = data1.dropna()
+    data1 = new_data.loc[new_data['Month'].isin(i)]
+    data1 = data1.reset_index(drop=True).dropna()
 
-    datas = data1['P_avg']
-    dfs = datas
-    s = dfs.values
+    y_series = data1['P_avg'].values.reshape(-1, 1)
 
     # =========================
-    # 2. CEEMDAN decomposition
+    # 2. CEEMDAN
     # =========================
     ceemdan = CEEMDAN(epsilon=0.05)
     ceemdan.noise_seed(12345)
 
-    IMFs = ceemdan(s)
-    ceemdan_df = pd.DataFrame(IMFs).T  # shape (N, num_imfs)
+    IMFs = ceemdan(y_series.flatten())
+    ceemdan_df = pd.DataFrame(IMFs).T
+
+    # 🔥 limitar IMFs (controle de custo)
+    MAX_IMFS = 5
+    ceemdan_df = ceemdan_df.iloc[:, :MAX_IMFS]
+
+    imfs_array = ceemdan_df.values
 
     # =========================
     # 3. Hilbert Transform
     # =========================
-    imfs_array = ceemdan_df.values
-
     analytic = hilbert(imfs_array, axis=0)
+
     amplitude = np.abs(analytic)
     phase = np.unwrap(np.angle(analytic), axis=0)
 
-    inst_freq = (1 / (2 * np.pi)) * np.diff(phase, axis=0)
+    inst_freq = np.diff(phase, axis=0)
     inst_freq = np.vstack([inst_freq, np.zeros((1, inst_freq.shape[1]))])
 
-    # 👉 versão estável (recomendada)
-    features = np.concatenate([imfs_array, amplitude], axis=1)
-
-    # (opcional - mais avançado)
-    # features = np.concatenate([imfs_array, amplitude, inst_freq], axis=1)
-
-    new_features = pd.DataFrame(features)
+    # =========================
+    # 4. Features finais
+    # =========================
+    features = np.concatenate([
+        imfs_array,
+        amplitude,
+        inst_freq
+    ], axis=1)
 
     # =========================
-    # 4. LSTM modeling per feature
+    # 5. Dataset supervisionado
     # =========================
-    pred_test = []
-    test_ori = []
-    pred_train = []
-    train_ori = []
+    def create_multivariate_dataset(X, y, look_back):
+        Xs, ys = [], []
+        for i in range(len(X) - look_back):
+            Xs.append(X[i:i+look_back, :])
+            ys.append(y[i+look_back])
+        return np.array(Xs), np.array(ys)
 
-    epoch = 100
-    batch_size = 64
-
-    for col in new_features:
-
-        datasetss2 = pd.DataFrame(new_features[col])
-        datasets = datasetss2.values
-
-        train_size = int(len(datasets) * data_partition)
-        train, test = datasets[0:train_size], datasets[train_size:]
-
-        trainX, trainY = create_dataset(train, look_back)
-        testX, testY = create_dataset(test, look_back)
-
-        trainY = np.array(trainY).reshape(-1, 1)
-        testY  = np.array(testY).reshape(-1, 1)
-
-        sc_X = StandardScaler()
-        sc_y = StandardScaler()
-
-        X = sc_X.fit_transform(trainX)
-        y = sc_y.fit_transform(trainY)
-
-        X1 = sc_X.fit_transform(testX)
-        y1 = sc_y.fit_transform(testY)
-
-        y = y.ravel()
-        y1 = y1.ravel()
-
-        # reshape for LSTM
-        trainX = np.reshape(X, (X.shape[0], X.shape[1], 1))
-        testX = np.reshape(X1, (X1.shape[0], X1.shape[1], 1))
-
-        # reproducibility
-        np.random.seed(1234)
-        tf.random.set_seed(1234)
-
-        # model
-        model = Sequential()
-        model.add(LSTM(units=128, input_shape=(trainX.shape[1], trainX.shape[2])))
-        model.add(Dense(1))
-
-        optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-        model.compile(loss='mse', optimizer=optimizer)
-
-        model.fit(trainX, y, epochs=epoch, batch_size=batch_size, verbose=0)
-
-        # predictions
-        y_pred_train = model.predict(trainX)
-        y_pred_test = model.predict(testX)
-
-        y_pred_test = np.array(y_pred_test).ravel()
-        y_pred_train = np.array(y_pred_train).ravel()
-
-        y1 = pd.DataFrame(y1)
-        y = pd.DataFrame(y)
-
-        y_test = sc_y.inverse_transform(y1)
-        y_train = sc_y.inverse_transform(y)
-
-        y_pred_test1 = sc_y.inverse_transform(pd.DataFrame(y_pred_test))
-        y_pred_train1 = sc_y.inverse_transform(pd.DataFrame(y_pred_train))
-
-        pred_test.append(y_pred_test1)
-        test_ori.append(y_test)
-        pred_train.append(y_pred_train1)
-        train_ori.append(y_train)
+    X_all, y_all = create_multivariate_dataset(features, y_series, look_back)
 
     # =========================
-    # 5. Reconstruction
+    # 6. Split
     # =========================
-    result_pred_test = pd.DataFrame.from_records(pred_test)
-    result_pred_train = pd.DataFrame.from_records(pred_train)
+    train_size = int(len(X_all) * data_partition)
 
-    a = result_pred_test.sum(axis=0, skipna=True)
-    b = result_pred_train.sum(axis=0, skipna=True)
+    X_train, X_test = X_all[:train_size], X_all[train_size:]
+    y_train, y_test = y_all[:train_size], y_all[train_size:]
 
     # =========================
-    # 6. Ground truth
+    # 7. Scaling
     # =========================
-    dataframe = pd.DataFrame(dfs)
-    dataset = dataframe.values
-
-    train_size = int(len(dataset) * data_partition)
-    train, test = dataset[0:train_size], dataset[train_size:]
-
-    trainX, trainY = create_dataset(train, look_back)
-    testX, testY = create_dataset(test, look_back)
-
+    sc_X = StandardScaler()
     sc_y = StandardScaler()
 
-    y_test = sc_y.fit_transform(testY)
-    y_test = sc_y.inverse_transform(y_test)
+    # reshape para scaler
+    X_train_2d = X_train.reshape(-1, X_train.shape[2])
+    X_test_2d  = X_test.reshape(-1, X_test.shape[2])
 
-    a = pd.DataFrame(a)
-    y_test = pd.DataFrame(y_test)
+    X_train_scaled = sc_X.fit_transform(X_train_2d)
+    X_test_scaled  = sc_X.transform(X_test_2d)
+
+    # volta para 3D
+    X_train = X_train_scaled.reshape(X_train.shape)
+    X_test  = X_test_scaled.reshape(X_test.shape)
+
+    y_train = sc_y.fit_transform(y_train)
+    y_test_scaled = sc_y.transform(y_test)
 
     # =========================
-    # 7. Metrics
+    # 8. Modelo LSTM
     # =========================
-    mape = np.mean((np.abs(y_test - a)) / cap) * 100
-    rmse = sqrt(mean_squared_error(y_test, a))
-    mae = metrics.mean_absolute_error(y_test, a)
+    np.random.seed(1234)
+    tf.random.set_seed(1234)
+
+    model = Sequential()
+    model.add(LSTM(128, input_shape=(look_back, X_train.shape[2])))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dense(1))
+
+    model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.001))
+
+    model.fit(X_train, y_train,
+              epochs=20,
+              batch_size=32,
+              verbose=1)
+
+    # =========================
+    # 9. Previsão
+    # =========================
+    y_pred = model.predict(X_test)
+
+    # voltar escala
+    y_pred = sc_y.inverse_transform(y_pred)
+    y_test = sc_y.inverse_transform(y_test_scaled)
+
+    # =========================
+    # 10. Métricas
+    # =========================
+    mape = np.mean(np.abs(y_test - y_pred) / cap) * 100
+    rmse = sqrt(mean_squared_error(y_test, y_pred))
+    mae = metrics.mean_absolute_error(y_test, y_pred)
 
     print('MAPE', mape)
     print('RMSE', rmse)
     print('MAE', mae)
 
-    # Save the real and predict values
-    np.savetxt('y_test.txt', y_test.values.flatten(), fmt='%.6f')
-    np.savetxt('y_pred_method_proposed_hilbert_transform.txt', a.values.flatten(), fmt='%.6f')
-    dates = data1['Month'].iloc[-len(y_test):]
-    dates = pd.to_datetime(dates)
-    np.savetxt('dates.txt', dates.astype(str), fmt='%s')
+    # Save metrics
+    try:
+        BASE_DIR = "/app"
+        np.savetxt(os.path.join(BASE_DIR, 'y_test_hht.txt'),
+                   y_test.flatten(), fmt='%.6f')
+        np.savetxt(os.path.join(BASE_DIR, 'y_pred_hht.txt'),
+                   y_pred.flatten(), fmt='%.6f')
+    except:
+        pass
 
-    return a, y_test
+    return y_pred, y_test
 
 
 ##Proposed Method Hybrid CEEMDAN-EWT LSTM with Stable Layer
@@ -1399,7 +1638,7 @@ def proposed_method_stable_layer(new_data,i,look_back,data_partition,cap):
         import os 
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
         from tensorflow.keras.models import Sequential
-        from tensorflow.keras.layers import Dense, Dropout, Activation
+        from tensorflow.keras.layers import Dense
         from tensorflow.keras.layers import LSTM
 
 
@@ -1439,6 +1678,10 @@ def proposed_method_stable_layer(new_data,i,look_back,data_partition,cap):
         test_ori.append(y_test)
         pred_train.append(y_pred_train1)
         train_ori.append(y_train)
+
+        K.clear_session()
+        import gc
+        gc.collect()
 
 
     result_pred_test= pd.DataFrame.from_records(pred_test)
@@ -1500,6 +1743,15 @@ def proposed_method_stable_layer(new_data,i,look_back,data_partition,cap):
     print('MAPE',mape)
     print('RMSE',rmse)
     print('MAE',mae)
+
+    # Save the real and predict values
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_stable_layer.txt'), a.values.flatten(), fmt='%.6f')
+
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
 
 
 ##Proposed Method Hybrid CEEMDAN-EWT LSTM with dropout Layer
@@ -1629,6 +1881,10 @@ def proposed_method_dropout_layer(new_data,i,look_back,data_partition,cap):
         pred_train.append(y_pred_train1)
         train_ori.append(y_train)
 
+        K.clear_session()
+        import gc
+        gc.collect()
+
 
     result_pred_test= pd.DataFrame.from_records(pred_test)
     result_pred_train= pd.DataFrame.from_records(pred_train)
@@ -1689,6 +1945,15 @@ def proposed_method_dropout_layer(new_data,i,look_back,data_partition,cap):
     print('MAPE',mape)
     print('RMSE',rmse)
     print('MAE',mae)
+
+    # Save the real and predict values
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_dropout_layer.txt'), a.values.flatten(), fmt='%.6f')
+
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
 
 
 ##Proposed Method Hybrid CEEMDAN-EWT LSTM with stable and dropout layer
@@ -2074,6 +2339,15 @@ def proposed_method_with_bilstm(new_data,i,look_back,data_partition,cap):
     print('RMSE',rmse)
     print('MAE',mae)
 
+    # Save the real and predict values
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_BiLSTM.txt'), a.values.flatten(), fmt='%.6f')
+
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
+
 
 # CEEMDAN-EWT GRU
 
@@ -2083,6 +2357,8 @@ def proposed_method_with_gru(new_data,i,look_back,data_partition,cap):
     data1=new_data.loc[new_data['Month'].isin(x)]
     data1=data1.reset_index(drop=True)
     data1=data1.dropna()
+
+    dates = data1.Date
     
     datas=data1['P_avg']
     datas_wind=pd.DataFrame(datas)
@@ -2113,9 +2389,9 @@ def proposed_method_with_gru(new_data,i,look_back,data_partition,cap):
     df_ewt.drop(df_ewt.columns[2],axis=1,inplace=True)
     denoised=df_ewt.sum(axis = 1, skipna = True) 
     ceemdan_without_imf1=ceemdan1.iloc[:,1:]
-    new_ceemdan=pd.concat([denoised,ceemdan_without_imf1],axis=1)    
+    new_ceemdan=pd.concat([denoised,ceemdan_without_imf1],axis=1)
+    new_ceemdan.index = dates
     
-
     pred_test=[]
     test_ori=[]
     pred_train=[]
@@ -2130,12 +2406,19 @@ def proposed_method_with_gru(new_data,i,look_back,data_partition,cap):
 
         datasetss2=pd.DataFrame(new_ceemdan[col])
         datasets=datasetss2.values
+        dates = new_ceemdan.index.values
+
         train_size = int(len(datasets) * data_partition)
         test_size = len(datasets) - train_size
         train, test = datasets[0:train_size], datasets[train_size:len(datasets)]
+        train_dates, test_dates = dates[:train_size], dates[train_size:]
 
         trainX, trainY = create_dataset(train, look_back)
         testX, testY = create_dataset(test, look_back)
+
+        train_dates_aligned = train_dates[look_back+1:]
+        test_dates_aligned = test_dates[look_back+1:]
+
         X_train=pd.DataFrame(trainX)
         Y_train=pd.DataFrame(trainY)
         X_test=pd.DataFrame(testX)
@@ -2263,6 +2546,14 @@ def proposed_method_with_gru(new_data,i,look_back,data_partition,cap):
     print('MAPE',mape)
     print('RMSE',rmse)
     print('MAE',mae)
+
+    # Save the real and predict values
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_gru.txt'), a.values.flatten(), fmt='%.6f')
+
+    dates = pd.to_datetime(test_dates_aligned)
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
 
 ## CEEMDAN-EWT BiGRU
 
@@ -2457,6 +2748,15 @@ def proposed_method_with_bigru(new_data,i,look_back,data_partition,cap):
     print('RMSE',rmse)
     print('MAE',mae)
 
+    # Save the real and predict values
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_BiGRU.txt'), a.values.flatten(), fmt='%.6f')
+
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
+
 
 # CEEMDAN-EWT Transformer with Keras
 
@@ -2648,6 +2948,15 @@ def proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,c
     print("MAPE:", mape)
     print("RMSE:", rmse)
     print("MAE:", mae)
+
+    # Save the real and predict values
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_transformer.txt'), a.values.flatten(), fmt='%.6f')
+
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
 
 
 # CEEMDAN-EWT PatchTransformer with TensorFlow
@@ -2903,6 +3212,15 @@ def proposed_method_with_patchtransformer_tf(new_data,i,look_back,data_partition
     print('MAPE', mape)
     print('RMSE', rmse)
     print('MAE', mae)
+
+    # Save the real and predict values
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_patch_transformer.txt'), a.values.flatten(), fmt='%.6f')
+
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
 
 # Hybrid CEEMDAN-EWT KAN
 
@@ -3166,6 +3484,15 @@ def proposed_method_with_kan(
     print("MAPE:", mape)
     print("RMSE:", rmse)
     print("MAE:", mae)
+
+    # Save the real and predict values
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_kan.txt'), a.values.flatten(), fmt='%.6f')
+
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
 
 
 def proposed_method_with_deeponet(
@@ -3568,3 +3895,18 @@ def proposed_method_with_lstm_deeponet(
 
     return a, y_test
 
+
+if __name__=='__main__':
+    import pandas as pd
+    df = pd.read_csv('dataset/final_la_haute_R0711.csv')
+    df['Date'] = pd.to_datetime(df['Date_time'], dayfirst=True)
+    df['Year'] = df['Date'].dt.year 
+    df['Month'] = df['Date'].dt.month 
+    new_data=df[['Month','Year','Date','P_avg']]
+    new_data=new_data[new_data.Year == 2017]
+
+    cap=max(new_data['P_avg'])
+    i=[1] # enter month value, i.e January = 1
+    look_back=6
+    data_partition=0.8
+    proposed_method(new_data,i,look_back,data_partition,cap)

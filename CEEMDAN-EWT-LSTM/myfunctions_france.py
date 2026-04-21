@@ -103,7 +103,6 @@ def svr_model(new_data,i,look_back,data_partition,cap):
 
     y1=pd.DataFrame(y1)
     y=pd.DataFrame(y)
- 
         
     y_pred_test1_svr= sc_y.inverse_transform (y_pred_test_svr)
     y_pred_train1_svr=sc_y.inverse_transform (y_pred_train_svr)
@@ -131,7 +130,6 @@ def svr_model(new_data,i,look_back,data_partition,cap):
 
 
 ##ANN
-
 def ann_model(new_data,i,look_back,data_partition,cap):
 
     x=i
@@ -184,8 +182,8 @@ def ann_model(new_data,i,look_back,data_partition,cap):
     import os 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     from keras.models import Sequential
-    from keras.layers import Dense, Dropout, Activation
-    from keras.layers import LSTM
+    from keras.layers.core import Dense, Dropout, Activation
+    from keras.layers.recurrent import LSTM
 
 
     neuron=128
@@ -218,7 +216,7 @@ def ann_model(new_data,i,look_back,data_partition,cap):
     print('RMSE',rmse)
     print('MAE',mae)
 
-
+  
 # In[22]:
 
 
