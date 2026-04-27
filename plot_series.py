@@ -13,17 +13,21 @@ plt.rcParams.update({
     'legend.fontsize': 12   # legenda
 })
 
+cv = False
 
 # =========================
 # 1. Load data
 # =========================
-y_test = np.loadtxt('y_test.txt')
 
-dates = np.loadtxt('dates.txt', dtype=str)
-# 1️Concatena data + hora
-dates_str = np.char.add(dates[:,0], ' ')
-dates_str = np.char.add(dates_str, dates[:,1])
-dates = pd.to_datetime(dates_str)
+if cv:
+    dates = np.loadtxt('dates_cv.txt', dtype=str)
+    y_test = np.loadtxt('y_test_cv.txt')
+else:
+    dates = np.loadtxt('dates.txt', dtype=str)
+    y_test = np.loadtxt('y_test.txt')
+
+dates = np.asarray(dates).reshape(-1)
+dates = pd.to_datetime(dates, errors='coerce')
 
 # =========================
 # 2. Load ALL predictions
@@ -32,9 +36,21 @@ pred_files = sorted(glob.glob("y_pred*.txt"))
 
 predictions = {}
 
-for file in pred_files:
-    name = os.path.splitext(os.path.basename(file))[0]  # nome sem .txt
+for file in sorted(pred_files):
+    filename = os.path.basename(file)
+
+    if cv:
+        # pega só arquivos com _cv
+        if not filename.endswith("_cv.txt"):
+            continue
+    else:
+        # pega só arquivos SEM _cv
+        if filename.endswith("_cv.txt"):
+            continue
+
+    name = os.path.splitext(filename)[0]
     predictions[name] = np.loadtxt(file)
+
 
 # =========================
 # 3. Plot

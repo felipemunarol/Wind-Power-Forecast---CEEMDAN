@@ -44,79 +44,93 @@ data_partition=0.8
 
 # %%
 from myfunctions_france_felipe import \
-    svr_model,ann_model, ann_model_old, rf_model,lstm_model,emd_lstm,eemd_lstm, \
+    svr_model, ann_model, rf_model,lstm_model,emd_lstm,eemd_lstm, \
     ceemdan_lstm,proposed_method, proposed_method_hilbert_transform, proposed_method_stable_layer, proposed_method_dropout_layer, proposed_method_stable_and_dropout_layer, \
     proposed_method_with_bilstm, proposed_method_with_gru, proposed_method_with_bigru, proposed_method_with_transformer_keras, \
     proposed_method_with_patchtransformer_tf, proposed_method_with_kan, proposed_method_with_deeponet, \
-    proposed_method_with_lstm_deeponet
+    proposed_method_with_lstm_deeponet, run_cv_hybrid_models
 
 # %%
-print('svr_model')
-svr_model(new_data,i,look_back,data_partition,cap,use_cv=False)
+# print('svr_model')
+# res = svr_model(new_data,i,look_back,data_partition,cap,use_cv=False)
 
-# # %%
-print('ann_model_old')
-ann_model_old(new_data,i,look_back,data_partition,cap)
-
-# # %%
-print('ann_model')
-ann_model(new_data,i,look_back,data_partition,cap,use_cv=False)
+# %%
+# print('ann_model')
+# res = ann_model(new_data,i,look_back,data_partition,cap,use_cv=True)
 
 # # %%
 # print('rf_model')
-# rf_model(new_data,i,look_back,data_partition,cap)
+# res = rf_model(new_data,i,look_back,data_partition,cap)
 
 # # %%
 # print('lstm_model')
-# lstm_model(new_data,i,look_back,data_partition,cap)
+# res = lstm_model(new_data,i,look_back,data_partition,cap)
 
 # # %%
 # print('emd_lstm')
-# emd_lstm(new_data,i,look_back,data_partition,cap)
+# res = emd_lstm(new_data,i,look_back,data_partition,cap)
 
 # # %%
 # print('eemd_lstm')
-# eemd_lstm(new_data,i,look_back,data_partition,cap)
+# res = eemd_lstm(new_data,i,look_back,data_partition,cap)
 
 # # %%
 # print('ceemdan_lstm')
-# ceemdan_lstm(new_data,i,look_back,data_partition,cap)
+# res = ceemdan_lstm(new_data,i,look_back,data_partition,cap)
 
 # # %%
 # print('proposed_method')
-# proposed_method(new_data,i,look_back,data_partition,cap)
+# res = proposed_method(new_data,i,look_back,data_partition,cap)
+print('proposed_method_cv')
+res = run_cv_hybrid_models(proposed_method, new_data, i, look_back=look_back, cap=cap)
 
 # # %%
 # print('proposed_method using hilbert transform')
 # proposed_method_hilbert_transform(new_data,i,look_back,data_partition,cap)
+# print('proposed_method using hilbert transform cv')
+# res = run_cv_model(proposed_method_hilbert_transform, new_data, i, look_back=10,cap=cap)
 
 # # %%
 # print('proposed_method_stable_layer')
 # proposed_method_stable_layer(new_data,i,look_back,data_partition,cap)
+# print('proposed_method_stable_layer cv')
+# res = run_cv_model(proposed_method_stable_layer, new_data, i, look_back=10,cap=cap)
 
 # # %%
 # print('proposed_method_dropout_layer')
 # proposed_method_dropout_layer(new_data,i,look_back,data_partition,cap)
+# print('proposed_method_dropout_layer cv')
+# res = run_cv_model(proposed_method_dropout_layer, new_data, i, look_back=10,cap=cap)
 
 # %%
 # print('proposed_method_stable_and_dropout_layer')
 # proposed_method_stable_and_dropout_layer(new_data,i,look_back,data_partition,cap)
+# print('proposed_method_stable_and_dropout_layer cv')
+# res = run_cv_model(proposed_method_stable_and_dropout_layer, new_data, i, look_back=10,cap=cap)
 
 # %%
 # print('proposed_method_with_bilstm')
 # proposed_method_with_bilstm(new_data,i,look_back,data_partition,cap)
+# print('proposed_method_with_bilstm cv')
+# res = run_cv_model(proposed_method_with_bilstm, new_data, i, look_back=10,cap=cap)
 
 # # %%
 # print('proposed_method_with_gru')
 # proposed_method_with_gru(new_data,i,look_back,data_partition,cap)
+# print('proposed_method_with_gru cv')
+# res = run_cv_model(proposed_method_with_gru, new_data, i, look_back=10,cap=cap)
 
 # # %%
 # print('proposed_method_with_bigru')
 # proposed_method_with_bigru(new_data,i,look_back,data_partition,cap)
+# print('proposed_method_with_bigru cv')
+# res = run_cv_model(proposed_method_with_bigru, new_data, i, look_back=10,cap=cap)
 
 # %%
 # print('proposed_method_with_transformer_keras')
 # proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,cap)
+# print('proposed_method_with_transformer_keras cv')
+# res = run_cv_model(proposed_method_with_transformer_keras, new_data, i, look_back=10,cap=cap)
 
 
 
