@@ -37,6 +37,8 @@ from sklearn.svm import SVR
 
 from math import sqrt
 
+epochs=10
+
 #convert an array of values into a dataset matrix
 def create_dataset(dataset, look_back=1):
     dataX, dataY = [], []
@@ -45,6 +47,8 @@ def create_dataset(dataset, look_back=1):
         dataX.append(a)
         dataY.append(dataset[i + look_back, 0])
     return numpy.array(dataX), numpy.array(dataY)
+
+import tensorflow as tf
 
 def run_pipeline(datasets, data1, look_back, model_func,
                  use_cv=False, n_splits=3, data_partition=0.7, cap=None):
@@ -404,7 +408,7 @@ def lstm_model(new_data,i,look_back,data_partition,cap):
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(loss='mse',optimizer=optimizer)
 
-    model.fit(trainX1, y, epochs = 100, batch_size = 64,verbose=0)
+    model.fit(trainX1, y, epochs = epochs, batch_size = 64,verbose=0)
   # make predictions
     y_pred_train = model.predict(trainX1)
     y_pred_test = model.predict(testX1)
@@ -455,15 +459,11 @@ def emd_lstm(new_data,i,look_back,data_partition,cap):
 
     full_imf=pd.DataFrame(IMFs)
     data_decomp=full_imf.T
-    
-
 
     pred_test=[]
     test_ori=[]
     pred_train=[]
     train_ori=[]
-
-    epoch=100
     batch_size=64
     neuron=128
     lr=0.001
@@ -519,7 +519,7 @@ def emd_lstm(new_data,i,look_back,data_partition,cap):
 
 
         # Fitting the RNN to the Training set
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
         # make predictions
         y_pred_train = model.predict(trainX)
@@ -640,7 +640,6 @@ def eemd_lstm(new_data,i,look_back,data_partition,cap):
     pred_train=[]
     train_ori=[]
 
-    epoch=100
     batch_size=64
     neuron=128
     lr=0.001
@@ -696,7 +695,7 @@ def eemd_lstm(new_data,i,look_back,data_partition,cap):
 
 
         # Fitting the RNN to the Training set
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
         # make predictions
         y_pred_train = model.predict(trainX)
@@ -816,7 +815,6 @@ def ceemdan_lstm(new_data,i,look_back,data_partition,cap):
     pred_train=[]
     train_ori=[]
 
-    epoch=100
     batch_size=64
     neuron=128
     lr=0.001
@@ -872,7 +870,7 @@ def ceemdan_lstm(new_data,i,look_back,data_partition,cap):
 
 
         # Fitting the RNN to the Training set
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
         # make predictions
         y_pred_train = model.predict(trainX)
@@ -980,7 +978,7 @@ def run_cv_hybrid_models(method,
 
         data_fold = data1.iloc[
             np.concatenate([train_idx, test_idx])
-        ].reset_index(drop=True)
+        ].reset_index(drop=True).copy()
 
         split_ratio = len(train_idx) / len(data_fold)
 
@@ -1080,8 +1078,6 @@ def proposed_method(new_data,i,look_back,data_partition,cap, save=True):
     pred_train=[]
     train_ori=[]
 
-    # epoch=100
-    epoch=10
     batch_size=64
     lr=0.001
     optimizer='Adam'
@@ -1138,7 +1134,7 @@ def proposed_method(new_data,i,look_back,data_partition,cap, save=True):
         optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         model.compile(loss='mse',optimizer=optimizer)
 
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
          # make predictions
         y_pred_train = model.predict(trainX)
@@ -1295,7 +1291,6 @@ def proposed_method(new_data,i,look_back,data_partition,cap, save=True):
 #     # =========================
 #     pred_test = []
 
-#     epoch = 10
 #     batch_size = 64
 
 #     for col in new_features:
@@ -1339,7 +1334,7 @@ def proposed_method(new_data,i,look_back,data_partition,cap, save=True):
 
 #         model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.001))
 
-#         model.fit(trainX, y_train, epochs=epoch, batch_size=batch_size, verbose=0)
+#         model.fit(trainX, y_train, epochs=epochs, batch_size=batch_size, verbose=0)
 
 #         # previsões
 #         y_pred_test = model.predict(testX)
@@ -1433,9 +1428,9 @@ def proposed_method_hilbert_transform(new_data, i, look_back, data_partition, ca
     IMFs = ceemdan(y_series.flatten())
     ceemdan_df = pd.DataFrame(IMFs).T
 
-    # 🔥 limitar IMFs (controle de custo)
-    MAX_IMFS = 5
-    ceemdan_df = ceemdan_df.iloc[:, :MAX_IMFS]
+    # Limitar IMFs (controle de custo)
+    # MAX_IMFS = 5
+    # ceemdan_df = ceemdan_df.iloc[:, :MAX_IMFS]
 
     imfs_array = ceemdan_df.values
 
@@ -1513,7 +1508,7 @@ def proposed_method_hilbert_transform(new_data, i, look_back, data_partition, ca
     model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(0.001))
 
     model.fit(X_train, y_train,
-              epochs=20,
+              epochs=epochs,
               batch_size=32,
               verbose=1)
 
@@ -1550,7 +1545,7 @@ def proposed_method_hilbert_transform(new_data, i, look_back, data_partition, ca
     except:
         pass
 
-    return y_test.values.flatten(), y_pred.values.flatten(), dates.astype(str).values
+    return y_test.values.flatten(), y_pred.values.flatten(), dates.astype(str)
 
 
 ##Proposed Method Hybrid CEEMDAN-EWT LSTM with Stable Layer
@@ -1599,7 +1594,6 @@ def proposed_method_stable_layer(new_data,i,look_back,data_partition,cap):
     pred_train=[]
     train_ori=[]
 
-    epoch=100
     batch_size=64
     lr=0.001
     optimizer='Adam'
@@ -1655,7 +1649,7 @@ def proposed_method_stable_layer(new_data,i,look_back,data_partition,cap):
         optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         model.compile(loss='mse',optimizer=optimizer)
 
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
          # make predictions
         y_pred_train = model.predict(trainX)
@@ -1803,7 +1797,6 @@ def proposed_method_dropout_layer(new_data,i,look_back,data_partition,cap):
     pred_train=[]
     train_ori=[]
 
-    epoch=100
     batch_size=64
     lr=0.001
     optimizer='Adam'
@@ -1859,7 +1852,7 @@ def proposed_method_dropout_layer(new_data,i,look_back,data_partition,cap):
         optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         model.compile(loss='mse',optimizer=optimizer)
 
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
          # make predictions
         y_pred_train = model.predict(trainX)
@@ -2007,7 +2000,6 @@ def proposed_method_stable_and_dropout_layer(new_data,i,look_back,data_partition
     pred_train=[]
     train_ori=[]
 
-    epoch=100
     batch_size=64
     lr=0.001
     optimizer='Adam'
@@ -2064,7 +2056,7 @@ def proposed_method_stable_and_dropout_layer(new_data,i,look_back,data_partition
         optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         model.compile(loss='mse',optimizer=optimizer)
 
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
          # make predictions
         y_pred_train = model.predict(trainX)
@@ -2152,7 +2144,7 @@ def proposed_method_stable_and_dropout_layer(new_data,i,look_back,data_partition
     print('RMSE',rmse)
     print('MAE',mae)
 
-    y_test.values.flatten(), a.values.flatten(), dates.astype(str).values
+    return y_test.values.flatten(), a.values.flatten(), dates.astype(str).values
 
 
 
@@ -2201,7 +2193,6 @@ def proposed_method_with_bilstm(new_data,i,look_back,data_partition,cap):
     pred_train=[]
     train_ori=[]
 
-    epoch=100
     batch_size=64
     lr=0.001
     optimizer='Adam'
@@ -2262,7 +2253,7 @@ def proposed_method_with_bilstm(new_data,i,look_back,data_partition,cap):
         optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         model.compile(loss='mse', optimizer=optimizer)
 
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
          # make predictions
         y_pred_train = model.predict(trainX)
@@ -2408,7 +2399,6 @@ def proposed_method_with_gru(new_data,i,look_back,data_partition,cap):
     pred_train=[]
     train_ori=[]
 
-    epoch=100
     batch_size=64
     lr=0.001
     optimizer='Adam'
@@ -2472,7 +2462,7 @@ def proposed_method_with_gru(new_data,i,look_back,data_partition,cap):
         optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         model.compile(loss='mse',optimizer=optimizer)
 
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
          # make predictions
         y_pred_train = model.predict(trainX)
@@ -2614,7 +2604,6 @@ def proposed_method_with_bigru(new_data,i,look_back,data_partition,cap):
     pred_train=[]
     train_ori=[]
 
-    epoch=100
     batch_size=64
     lr=0.001
     optimizer='Adam'
@@ -2675,7 +2664,7 @@ def proposed_method_with_bigru(new_data,i,look_back,data_partition,cap):
         optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         model.compile(loss='mse', optimizer=optimizer)
 
-        model.fit(trainX, y, epochs = epoch, batch_size = batch_size,verbose=0)
+        model.fit(trainX, y, epochs = epochs, batch_size = batch_size,verbose=0)
 
          # make predictions
         y_pred_train = model.predict(trainX)
@@ -2775,21 +2764,94 @@ def proposed_method_with_bigru(new_data,i,look_back,data_partition,cap):
 
 # CEEMDAN-EWT Transformer with Keras
 
-def proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,cap):
+def proposed_method_with_transformer_keras(new_data, i, look_back, data_partition, cap):
 
-    import numpy as np
-    import pandas as pd
-    from math import sqrt
-    from sklearn.preprocessing import StandardScaler
-    from sklearn.metrics import mean_squared_error
-    from sklearn import metrics
-    import tensorflow as tf
+    # ===============================
+    # MultiHeadAttention manual (compatível TF 2.3)
+    # ===============================
+    class MultiHeadAttention(tf.keras.layers.Layer):
+        def __init__(self, embed_dim, num_heads=2):
+            super().__init__()
+            self.embed_dim = embed_dim
+            self.num_heads = num_heads
+
+            assert embed_dim % num_heads == 0
+            self.projection_dim = embed_dim // num_heads
+
+            self.query_dense = tf.keras.layers.Dense(embed_dim)
+            self.key_dense   = tf.keras.layers.Dense(embed_dim)
+            self.value_dense = tf.keras.layers.Dense(embed_dim)
+
+            self.combine_heads = tf.keras.layers.Dense(embed_dim)
+
+        def separate_heads(self, x, batch_size):
+            x = tf.reshape(x, (batch_size, -1, self.num_heads, self.projection_dim))
+            return tf.transpose(x, perm=[0, 2, 1, 3])
+
+        def attention(self, query, key, value):
+            score = tf.matmul(query, key, transpose_b=True)
+            dim_key = tf.cast(tf.shape(key)[-1], tf.float32)
+            scaled_score = score / tf.math.sqrt(dim_key)
+            weights = tf.nn.softmax(scaled_score, axis=-1)
+            return tf.matmul(weights, value)
+
+        def call(self, inputs):
+            batch_size = tf.shape(inputs)[0]
+
+            query = self.query_dense(inputs)
+            key   = self.key_dense(inputs)
+            value = self.value_dense(inputs)
+
+            query = self.separate_heads(query, batch_size)
+            key   = self.separate_heads(key, batch_size)
+            value = self.separate_heads(value, batch_size)
+
+            attention = self.attention(query, key, value)
+
+            attention = tf.transpose(attention, perm=[0, 2, 1, 3])
+            concat_attention = tf.reshape(attention, (batch_size, -1, self.embed_dim))
+
+            return self.combine_heads(concat_attention)
+
+    # ===============================
+    # Positional Encoding
+    # ===============================
+    class PositionalEncoding(tf.keras.layers.Layer):
+        def __init__(self, d_model):
+            super().__init__()
+            self.d_model = d_model
+
+        def call(self, x):
+            import tensorflow as tf
+
+            length = tf.shape(x)[1]
+
+            pos = tf.cast(tf.range(length), tf.float32)[:, tf.newaxis]
+            i = tf.cast(tf.range(self.d_model), tf.float32)[tf.newaxis, :]
+
+            angle_rates = 1.0 / tf.pow(
+                10000.0,
+                (2.0 * tf.floor(i / 2.0)) / float(self.d_model)
+            )
+
+            angles = pos * angle_rates
+
+            angles_sin = tf.sin(angles)
+            angles_cos = tf.cos(angles)
+
+            pos_encoding = tf.where(
+                tf.cast(tf.range(self.d_model) % 2, tf.bool),
+                angles_cos,
+                angles_sin
+            )
+            pos_encoding = tf.expand_dims(pos_encoding, axis=0)
+
+            return x + pos_encoding
 
     # ===============================
     # 1. Seleção dos dados
     # ===============================
-    x = i
-    data1 = new_data.loc[new_data['Month'].isin(x)]
+    data1 = new_data.loc[new_data['Month'].isin(i)]
     data1 = data1.reset_index(drop=True).dropna()
 
     dfs = data1['P_avg']
@@ -2799,7 +2861,6 @@ def proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,c
     # 2. CEEMDAN
     # ===============================
     from PyEMD import CEEMDAN
-
     emd = CEEMDAN(epsilon=0.05)
     emd.noise_seed(12345)
 
@@ -2807,12 +2868,12 @@ def proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,c
     ceemdan1 = pd.DataFrame(IMFs).T
 
     # ===============================
-    # 3. EWT no primeiro IMF
+    # 3. EWT
     # ===============================
     import ewtpy
 
     imf1 = ceemdan1.iloc[:, 0]
-    ewt, mfb, boundaries = ewtpy.EWT1D(imf1, N=3)
+    ewt, _, _ = ewtpy.EWT1D(imf1, N=3)
 
     df_ewt = pd.DataFrame(ewt)
     df_ewt.drop(df_ewt.columns[2], axis=1, inplace=True)
@@ -2823,31 +2884,9 @@ def proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,c
     new_ceemdan = pd.concat([denoised, ceemdan_without_imf1], axis=1)
 
     # ===============================
-    # 4. Positional Encoding
-    # ===============================
-    class PositionalEncoding(tf.keras.layers.Layer):
-        def __init__(self, d_model):
-            super().__init__()
-            self.d_model = d_model
-
-        def call(self, x):
-            length = tf.shape(x)[1]
-            pos = tf.range(length)[:, tf.newaxis]
-            i = tf.range(self.d_model)[tf.newaxis, :]
-            angle_rates = 1 / tf.pow(
-                10000.0, (2 * (i // 2)) / tf.cast(self.d_model, tf.float32)
-            )
-            angles = tf.cast(pos, tf.float32) * angle_rates
-            pos_encoding = tf.where(
-                i % 2 == 0, tf.sin(angles), tf.cos(angles)
-            )
-            return x + pos_encoding
-
-    # ===============================
-    # 5. Loop por componente
+    # 4. Loop por componente
     # ===============================
     pred_test = []
-    pred_train = []
 
     for col in new_ceemdan:
 
@@ -2872,37 +2911,34 @@ def proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,c
         testX = X_test.reshape(X_test.shape[0], look_back, 1)
 
         # ===============================
-        # 6. Transformer Encoder
+        # 5. Modelo Transformer
         # ===============================
         inputs = tf.keras.Input(shape=(look_back, 1))
 
-        x = tf.keras.layers.Dense(64)(inputs)
+        x = tf.keras.layers.Dense(32)(inputs)
+        x = PositionalEncoding(32)(x)
 
-        positions = tf.range(start=0, limit=look_back, delta=1)
-        pos_embedding = tf.keras.layers.Embedding(
-            input_dim=look_back,
-            output_dim=64
-        )(positions)
-
-        x = x + pos_embedding
-
-        attn = tf.keras.layers.MultiHeadAttention(
-            num_heads=2,
-            key_dim=32
-        )(x, x)
+        attn = MultiHeadAttention(embed_dim=64, num_heads=4)(x)
+        attn = tf.keras.layers.Dropout(0.1)(attn)
 
         x = tf.keras.layers.Add()([x, attn])
         x = tf.keras.layers.LayerNormalization()(x)
 
         ff = tf.keras.layers.Dense(64, activation="relu")(x)
+        ff = tf.keras.layers.Dense(32)(ff)
+        ff = tf.keras.layers.Dropout(0.2)(ff)
+
         x = tf.keras.layers.Add()([x, ff])
         x = tf.keras.layers.LayerNormalization()(x)
 
-        x = tf.keras.layers.Lambda(lambda t: t[:, -1, :])(x)
+        x = tf.keras.layers.Lambda(
+            lambda t: t[:, -1, :]
+        )(x)
 
         outputs = tf.keras.layers.Dense(1)(x)
 
         model = tf.keras.Model(inputs, outputs)
+
         model.compile(
             optimizer=tf.keras.optimizers.Adam(1e-4),
             loss="mse"
@@ -2910,51 +2946,34 @@ def proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,c
 
         model.fit(
             trainX, y_train,
-            epochs=100,
+            epochs=epochs,
             batch_size=64,
             verbose=0
         )
 
         # ===============================
-        # 7. Previsões
+        # 6. Previsões
         # ===============================
         y_pred_test = model.predict(testX).ravel()
-        y_pred_train = model.predict(trainX).ravel()
-
-        y_pred_test = sc_y.inverse_transform(
-            y_pred_test.reshape(-1, 1)
-        )
-        y_pred_train = sc_y.inverse_transform(
-            y_pred_train.reshape(-1, 1)
-        )
+        y_pred_test = sc_y.inverse_transform(y_pred_test.reshape(-1, 1))
 
         pred_test.append(pd.DataFrame(y_pred_test))
-        pred_train.append(pd.DataFrame(y_pred_train))
 
     # ===============================
-    # 8. Reconstrução do sinal
+    # 7. Reconstrução
     # ===============================
-    # cada elemento de pred_test é (N_test, 1)
-    # empilha por coluna
-    pred_test_matrix = np.hstack(
-        [df.values for df in pred_test]
-    )
-    # soma componente a componente
+    pred_test_matrix = np.hstack([df.values for df in pred_test])
     a = pred_test_matrix.sum(axis=1).reshape(-1, 1)
 
     # ===============================
-    # 9. Métricas finais
+    # 8. Métricas
     # ===============================
     dataset = dfs.values.reshape(-1, 1)
-
     train_size = int(len(dataset) * data_partition)
     test = dataset[train_size:]
 
     _, testY = create_dataset(test, look_back)
     y_test = testY.reshape(-1, 1)
-
-    a = np.asarray(a).reshape(-1, 1)
-    y_test = np.asarray(y_test).reshape(-1, 1)
 
     mape = np.mean(np.abs(y_test - a) / cap) * 100
     rmse = sqrt(mean_squared_error(y_test, a))
@@ -2965,15 +2984,15 @@ def proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,c
     print("MAE:", mae)
 
     # Save the real and predict values
-    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
-    np.savetxt(os.path.join(BASE_DIR, 'y_pred_transformer.txt'), a.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_transformer.txt'), a.flatten(), fmt='%.6f')
 
     dates = data1['Month'].iloc[-len(y_test):]
     dates = pd.to_datetime(dates)
 
     np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
 
-    return y_test.values.flatten(), a.values.flatten(), dates.astype(str).values
+    return y_test.flatten(), a.flatten(), dates.astype(str).values
 
 
 # CEEMDAN-EWT PatchTransformer with TensorFlow
@@ -3022,7 +3041,6 @@ def proposed_method_with_patchtransformer_tf(new_data,i,look_back,data_partition
     pred_train=[]
     train_ori=[]
 
-    epoch=100
     batch_size=64
     lr=0.001
     optimizer='Adam'
@@ -3157,7 +3175,7 @@ def proposed_method_with_patchtransformer_tf(new_data,i,look_back,data_partition
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
         criterion = nn.MSELoss()
 
-        for epoch in range(epoch):
+        for epoch in range(epochs):
             model.train()
             for xb, yb in train_loader:
                 xb, yb = xb.to(device), yb.to(device)
@@ -3245,7 +3263,7 @@ def proposed_method_with_patchtransformer_tf(new_data,i,look_back,data_partition
 
 def proposed_method_with_kan(
     new_data, i, look_back, data_partition, cap,
-    epochs=50, batch_size=32, Q=4
+    epochs=epochs, batch_size=32, Q=4
 ):
     import numpy as np
     import pandas as pd
