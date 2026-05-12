@@ -90,11 +90,11 @@ from myfunctions_france_felipe import \
 # clear_memory()
 
 # # %%
-print('proposed_method')
-res = proposed_method(new_data,i,look_back,data_partition,cap)
+# print('proposed_method')
+# res = proposed_method(new_data,i,look_back,data_partition,cap)
 # print('proposed_method_cv')
 # res = run_cv_hybrid_models(proposed_method, new_data, i, look_back=look_back, cap=cap)
-clear_memory()
+# clear_memory()
 
 # # %%
 print('proposed_method using hilbert transform')
@@ -146,10 +146,10 @@ clear_memory()
 # clear_memory()
 
 # %%
-# print('proposed_method_with_transformer_keras')
-# proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,cap)
-print('proposed_method_with_transformer_keras_cv')
-res = run_cv_hybrid_models(proposed_method_with_transformer_keras, new_data, i, look_back=look_back,cap=cap)
+print('proposed_method_with_transformer_keras')
+proposed_method_with_transformer_keras(new_data,i,look_back,data_partition,cap)
+# print('proposed_method_with_transformer_keras_cv')
+# res = run_cv_hybrid_models(proposed_method_with_transformer_keras, new_data, i, look_back=look_back,cap=cap)
 clear_memory()
 
 

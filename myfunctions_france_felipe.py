@@ -1545,7 +1545,7 @@ def proposed_method_hilbert_transform(new_data, i, look_back, data_partition, ca
     except:
         pass
 
-    return y_test.values.flatten(), y_pred.values.flatten(), dates.astype(str)
+    return y_test.flatten(), y_pred.flatten(), dates.astype(str)
 
 
 ##Proposed Method Hybrid CEEMDAN-EWT LSTM with Stable Layer
@@ -2143,6 +2143,15 @@ def proposed_method_stable_and_dropout_layer(new_data,i,look_back,data_partition
     print('MAPE',mape)
     print('RMSE',rmse)
     print('MAE',mae)
+
+    # Save the real and predict values
+    np.savetxt(os.path.join(BASE_DIR, 'y_test.txt'), y_test.values.flatten(), fmt='%.6f')
+    np.savetxt(os.path.join(BASE_DIR, 'y_pred_proposed_method_stable_and_dropout_layer.txt'), a.values.flatten(), fmt='%.6f')
+
+    dates = data1['Month'].iloc[-len(y_test):]
+    dates = pd.to_datetime(dates)
+
+    np.savetxt(os.path.join(BASE_DIR, 'dates.txt'), dates.astype(str), fmt='%s')
 
     return y_test.values.flatten(), a.values.flatten(), dates.astype(str).values
 
@@ -2918,7 +2927,7 @@ def proposed_method_with_transformer_keras(new_data, i, look_back, data_partitio
         x = tf.keras.layers.Dense(32)(inputs)
         x = PositionalEncoding(32)(x)
 
-        attn = MultiHeadAttention(embed_dim=64, num_heads=4)(x)
+        attn = MultiHeadAttention(embed_dim=32, num_heads=4)(x)
         attn = tf.keras.layers.Dropout(0.1)(attn)
 
         x = tf.keras.layers.Add()([x, attn])
